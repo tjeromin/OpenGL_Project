@@ -22,7 +22,7 @@ static bool GLLogCall(const char* function, const char* file, int line)
     {
         std::cout << "[OpenGL Error] (0x" << std::hex << error << "):" << std::endl
             << function << std::endl 
-            << file << "at line: " << line << std::endl;
+            << file << " at line >>> " << std::dec << line << std::endl;
         return false;
     }
     return true;
@@ -70,22 +70,22 @@ static ShaderProgramSource ParseShader(const std::string &filepath)
 
 static unsigned int CompileShader(unsigned int type, const std::string &source)
 {
-    unsigned int id = glCreateShader(type);
+    GLCall(unsigned int id = glCreateShader(type));
     const char *src = source.c_str();
-    glShaderSource(id, 1, &src, nullptr);
-    glCompileShader(id);
+    GLCall(glShaderSource(id, 1, &src, nullptr));
+    GLCall(glCompileShader(id));
 
     int result;
-    glGetShaderiv(id, GL_COMPILE_STATUS, &result);
+    GLCall(glGetShaderiv(id, GL_COMPILE_STATUS, &result));
     if (result == GL_FALSE)
     {
         int length;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length);
+        GLCall(glGetShaderiv(id, GL_INFO_LOG_LENGTH, &length));
         char* message = (char*)alloca(length * sizeof(char));
-        glGetShaderInfoLog(id, length, &length, message);
+        GLCall(glGetShaderInfoLog(id, length, &length, message));
         std::cout << "Failed to compile Shader!" << std::endl;
         std::cout << message << std::endl;
-        glDeleteShader(id);
+        GLCall(glDeleteShader(id));
         return 0;
     }
 
@@ -94,17 +94,17 @@ static unsigned int CompileShader(unsigned int type, const std::string &source)
 
 static unsigned int CreateShader(const std::string &vertexShader, const std::string &fragmentShader)
 {
-    unsigned int program = glCreateProgram();
+    GLCall(unsigned int program = glCreateProgram());
     unsigned int vs = CompileShader(GL_VERTEX_SHADER, vertexShader);
     unsigned int fs = CompileShader(GL_FRAGMENT_SHADER, fragmentShader);
 
-    glAttachShader(program, vs);
-    glAttachShader(program, fs);
-    glLinkProgram(program);
-    glValidateProgram(program);
+    GLCall(glAttachShader(program, vs));
+    GLCall(glAttachShader(program, fs));
+    GLCall(glLinkProgram(program));
+    GLCall(glValidateProgram(program));
 
-    glDeleteShader(vs);
-    glDeleteShader(fs);
+    GLCall(glDeleteShader(vs));
+    GLCall(glDeleteShader(fs));
 
     return program;
 }
@@ -145,6 +145,9 @@ int main(void)
 
     /* Make the window's context current */
     glfwMakeContextCurrent(window);
+
+    /* Swap buffers per screen refresh */
+    glfwSwapInterval(2);
 
     // Initialize GLEW
     if (glewInit() != GLEW_OK)
@@ -191,15 +194,29 @@ int main(void)
     std::cout << source.FragmentSource << std::endl;
 
     unsigned int shader = CreateShader(source.VertexSource, source.FragmentSource);
-    glUseProgram(shader);
+    GLCall(glUseProgram(shader));
 
+    GLCall(int location = glGetUniformLocation(shader, "u_Color"));
+    ASSERT(location != -1);
+    GLCall(glUniform4f(location, 0.2f, 0.3f, 0.8f, 1.0f));
+
+    float r = 0.0f;
+    float inc = 0.05f;
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT);
 
-        GLCall(glDrawElements(GL_TRIANGLES, 6, GL_INT, nullptr));
+        GLCall(glUniform4f(location, r, 0.3f, 0.8f, 1.0f));
+        GLCall(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr));
+
+        if (r > 1.0f)
+            inc = -0.05f;
+        else if (r < 0.0f)
+            inc = 0.05f;
+
+        r += inc;
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
